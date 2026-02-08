@@ -294,65 +294,66 @@ export function Dashboard({ initialUser }: DashboardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/40">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary overflow-hidden">
+    <div className="min-h-screen bg-background pb-24 sm:pb-8">
+      {/* Header - compacto en móvil */}
+      <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-5">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-primary overflow-hidden">
               <Image
                 src="/isotipo.png"
                 alt="Reyes Finance"
                 width={36}
                 height={36}
-                className="h-9 w-9 object-cover"
+                className="h-8 w-8 sm:h-9 sm:w-9 object-cover"
                 priority
               />
             </div>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-semibold tracking-tight truncate">
                 Reyes de la IA Finance
               </h1>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">
                 Dashboard Financiero
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {user && (
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-border">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-border">
                   {user.avatar ? (
                     <Image
                       src={user.avatar}
                       alt={user.name ?? "Avatar"}
                       width={36}
                       height={36}
-                      className="h-9 w-9 object-cover"
+                      className="h-8 w-8 sm:h-9 sm:w-9 object-cover"
                       unoptimized
                     />
                   ) : (
-                    <div className="flex h-9 w-9 items-center justify-center text-sm font-medium text-muted-foreground">
+                    <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center text-xs sm:text-sm font-medium text-muted-foreground">
                       {(user.name ?? "U").charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col min-w-0">
+                <div className="hidden sm:flex flex-col min-w-0 max-w-[140px]">
                   <span className="text-sm font-medium truncate">{user.name}</span>
                   {user.email && (
-                    <span className="text-xs text-muted-foreground truncate max-w-[160px] sm:max-w-[200px]">
+                    <span className="text-xs text-muted-foreground truncate">
                       {user.email}
                     </span>
                   )}
                 </div>
               </div>
             )}
-            <Badge variant="outline" className="text-xs font-mono">
+            <Badge variant="outline" className="text-[10px] sm:text-xs font-mono hidden sm:flex">
               v1.0
             </Badge>
             <Button
               variant="ghost"
               size="sm"
+              className="min-h-[44px] min-w-[44px] sm:min-w-0 text-xs sm:text-sm"
               onClick={async () => {
                 if (supabase) {
                   await supabase.auth.signOut();
@@ -360,14 +361,15 @@ export function Dashboard({ initialUser }: DashboardProps) {
                 }
               }}
             >
-              Cerrar sesión
+              <span className="hidden sm:inline">Cerrar sesión</span>
+              <span className="sm:hidden">Salir</span>
             </Button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-4 sm:py-8 space-y-6 sm:space-y-8">
         {/* KPI Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card className="border-emerald-500/20">
@@ -406,7 +408,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
         </div>
 
         {/* Ventas por año */}
-        <div className="flex flex-wrap gap-6 rounded-lg border border-border/40 bg-muted/20 px-5 py-4">
+        <div className="flex flex-wrap gap-4 sm:gap-6 rounded-lg border border-border/40 bg-muted/20 px-4 sm:px-5 py-3 sm:py-4">
           <div className="flex items-center gap-3">
             <span className="text-xs font-medium text-muted-foreground">
               Ventas 2024
@@ -455,9 +457,9 @@ export function Dashboard({ initialUser }: DashboardProps) {
                   placeholder="Buscar cliente..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="sm:max-w-xs"
+                  className="sm:max-w-xs min-h-[44px] sm:min-h-0"
                 />
-                <Button onClick={handleNew} size="sm">
+                <Button onClick={handleNew} size="sm" className="min-h-[44px]">
                   + Nuevo Proyecto
                 </Button>
               </div>
@@ -484,7 +486,43 @@ export function Dashboard({ initialUser }: DashboardProps) {
                 </p>
               </div>
             ) : (
-              <div className="rounded-lg border border-border/50 overflow-hidden">
+              <>
+                {/* Vista móvil: cards táctiles */}
+                <div className="space-y-3 md:hidden">
+                  {filtered.map((p) => (
+                    <div
+                      key={p.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleEdit(p)}
+                      onKeyDown={(e) => e.key === "Enter" && handleEdit(p)}
+                      className="rounded-lg border border-border/50 p-4 active:bg-muted/50 transition-colors min-h-[44px]"
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">{p.cliente}</p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {normalizeServicio(p.servicio_contratado) || p.servicio_contratado || "--"}
+                          </p>
+                        </div>
+                        <p className="font-mono text-sm tabular-nums shrink-0">
+                          {p.precio != null ? formatCLP(p.precio) : "--"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <Badge variant="outline" className={estadoBadgeClass(p.estado)}>
+                          {p.estado}
+                        </Badge>
+                        <Badge variant="outline" className={estadoPagoBadgeClass(p.estado_pago)}>
+                          {p.estado_pago}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Vista desktop: tabla */}
+                <div className="hidden md:block rounded-lg border border-border/50 overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -585,7 +623,8 @@ export function Dashboard({ initialUser }: DashboardProps) {
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -597,6 +636,18 @@ export function Dashboard({ initialUser }: DashboardProps) {
           </p>
         </footer>
       </main>
+
+      {/* FAB móvil: Nuevo Proyecto siempre accesible */}
+      <div className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] right-4 z-30 sm:hidden">
+        <Button
+          size="lg"
+          onClick={handleNew}
+          className="h-14 w-14 rounded-full shadow-lg"
+          aria-label="Nuevo proyecto"
+        >
+          <span className="text-2xl">+</span>
+        </Button>
+      </div>
 
       {/* Modal */}
       <ProyectoModal

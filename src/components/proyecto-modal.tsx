@@ -141,7 +141,7 @@ export function ProyectoModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-lg max-h-[90dvh] overflow-y-auto sm:max-h-[85vh] data-[state=open]:slide-in-from-bottom-4 sm:data-[state=open]:slide-in-from-bottom-0">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Editar Proyecto" : "Nuevo Proyecto"}
@@ -157,6 +157,7 @@ export function ProyectoModal({
               placeholder="Nombre del cliente"
               value={form.cliente}
               onChange={(e) => updateField("cliente", e.target.value)}
+              className="min-h-[44px]"
               required
             />
           </div>
@@ -169,7 +170,7 @@ export function ProyectoModal({
               onValueChange={(v) => updateField("servicio_contratado", v)}
               required
             >
-              <SelectTrigger>
+              <SelectTrigger className="min-h-[44px]">
                 <SelectValue placeholder="Seleccionar servicio" />
               </SelectTrigger>
               <SelectContent>
@@ -189,7 +190,7 @@ export function ProyectoModal({
           </div>
 
           {/* UF + Precio */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="uf">Cantidad UF</Label>
               <Input
@@ -200,6 +201,7 @@ export function ProyectoModal({
                 value={ufCantidad}
                 onChange={(e) => aplicarUF(e.target.value)}
                 disabled={ufLoading}
+                className="min-h-[44px]"
               />
               {ufValorHoy != null && !ufLoading && (
                 <p className="text-xs text-muted-foreground">
@@ -227,13 +229,14 @@ export function ProyectoModal({
                     raw === "" ? "" : Number(raw)
                   );
                 }}
+                className="min-h-[44px]"
                 required
               />
             </div>
           </div>
 
           {/* Estado + Estado de Pago */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Estado</Label>
               <Select
@@ -241,7 +244,7 @@ export function ProyectoModal({
                 onValueChange={(v) => updateField("estado", v)}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="min-h-[44px]">
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -260,7 +263,7 @@ export function ProyectoModal({
                 onValueChange={(v) => updateField("estado_pago", v)}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="min-h-[44px]">
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -275,7 +278,7 @@ export function ProyectoModal({
           </div>
 
           {/* Contacto + Fecha */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="contacto">Contacto</Label>
               <Input
@@ -283,6 +286,7 @@ export function ProyectoModal({
                 placeholder="Email o teléfono"
                 value={form.contacto}
                 onChange={(e) => updateField("contacto", e.target.value)}
+                className="min-h-[44px]"
               />
             </div>
             <div className="space-y-1.5">
@@ -292,12 +296,13 @@ export function ProyectoModal({
                 type="date"
                 value={form.fecha_terminado}
                 onChange={(e) => updateField("fecha_terminado", e.target.value)}
+                className="min-h-[44px]"
               />
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between gap-3 pt-4">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-4">
             {isEditing && onDelete && (
               <Button
                 type="button"
@@ -309,11 +314,11 @@ export function ProyectoModal({
                 Eliminar
               </Button>
             )}
-            <div className="ml-auto flex gap-3">
-              <Button type="button" variant="ghost" onClick={onClose}>
+            <div className="flex gap-3 w-full sm:w-auto sm:ml-auto">
+              <Button type="button" variant="ghost" onClick={onClose} className="flex-1 sm:flex-none min-h-[48px]">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving} className="flex-1 sm:flex-none min-h-[48px]">
                 {saving
                   ? "Guardando..."
                   : isEditing
