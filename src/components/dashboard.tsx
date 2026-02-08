@@ -132,17 +132,30 @@ export function Dashboard({ initialUser }: DashboardProps) {
   useEffect(() => {
     if (initialUser) setUser(initialUser);
     if (!supabase) return;
-    const applyUser = (u: { user_metadata?: Record<string, unknown>; email?: string } | null) => {
+    const applyUser = (u: {
+      user_metadata?: Record<string, unknown>;
+      email?: string;
+      identities?: Array<{ identity_data?: Record<string, unknown> }>;
+    } | null) => {
       if (!u) return;
       const meta = u.user_metadata ?? {};
+      const idData = u.identities?.[0]?.identity_data ?? {};
+      const avatar =
+        (meta.avatar_url as string) ??
+        (meta.picture as string) ??
+        (idData.avatar_url as string) ??
+        (idData.picture as string) ??
+        undefined;
       setUser({
         name:
           (meta.full_name as string) ??
           (meta.name as string) ??
+          (idData.full_name as string) ??
+          (idData.name as string) ??
           (u.email?.split("@")[0]) ??
           "Usuario",
         email: u.email ?? undefined,
-        avatar: (meta.avatar_url as string) ?? (meta.picture as string) ?? undefined,
+        avatar,
       });
     };
     supabase.auth.getSession().then(({ data: { session } }) => applyUser(session?.user ?? null));
@@ -307,26 +320,27 @@ export function Dashboard({ initialUser }: DashboardProps) {
           </div>
           <div className="flex items-center gap-3">
             {user && (
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 overflow-hidden rounded-full bg-muted ring-2 ring-border">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-border">
                   {user.avatar ? (
                     <Image
                       src={user.avatar}
                       alt={user.name ?? "Avatar"}
-                      width={32}
-                      height={32}
-                      className="h-8 w-8 object-cover"
+                      width={36}
+                      height={36}
+                      className="h-9 w-9 object-cover"
+                      unoptimized
                     />
                   ) : (
-                    <div className="flex h-8 w-8 items-center justify-center text-sm font-medium text-muted-foreground">
+                    <div className="flex h-9 w-9 items-center justify-center text-sm font-medium text-muted-foreground">
                       {(user.name ?? "U").charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
-                <div className="hidden flex-col sm:flex">
-                  <span className="text-sm font-medium">{user.name}</span>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium truncate">{user.name}</span>
                   {user.email && (
-                    <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                    <span className="text-xs text-muted-foreground truncate max-w-[160px] sm:max-w-[200px]">
                       {user.email}
                     </span>
                   )}
