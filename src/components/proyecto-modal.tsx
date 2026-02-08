@@ -43,6 +43,15 @@ const EMPTY_FORM: ProyectoData = {
 const ESTADOS = ["Agendado!", "Curso hecho :)"];
 const ESTADOS_PAGO = ["Por facturar", "esperando pago", "pago completo"];
 
+const SERVICIOS = [
+  "Programa acompañamiento",
+  "Talleres IA",
+  "Hands-On grupales",
+  "Cápsulas",
+  "Clases particulares",
+  "Otro",
+];
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -125,16 +134,29 @@ export function ProyectoModal({
           {/* Servicio + Precio */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="servicio">Servicio Contratado</Label>
-              <Input
-                id="servicio"
-                placeholder="Ej: Consultoría"
+              <Label>Servicio Contratado</Label>
+              <Select
                 value={form.servicio_contratado}
-                onChange={(e) =>
-                  updateField("servicio_contratado", e.target.value)
-                }
+                onValueChange={(v) => updateField("servicio_contratado", v)}
                 required
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar servicio" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[
+                    ...SERVICIOS,
+                    ...(form.servicio_contratado &&
+                    !SERVICIOS.includes(form.servicio_contratado)
+                      ? [form.servicio_contratado]
+                      : []),
+                  ].map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="precio">Precio (CLP)</Label>
