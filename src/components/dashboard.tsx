@@ -27,6 +27,7 @@ import { normalizeServicio } from "@/lib/utils";
 
 export interface DashboardUser {
   name?: string;
+  email?: string;
   avatar?: string;
 }
 
@@ -140,6 +141,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
           (meta.name as string) ??
           (u.email?.split("@")[0]) ??
           "Usuario",
+        email: u.email ?? undefined,
         avatar: (meta.avatar_url as string) ?? (meta.picture as string) ?? undefined,
       });
     };
@@ -321,9 +323,14 @@ export function Dashboard({ initialUser }: DashboardProps) {
                     </div>
                   )}
                 </div>
-                <span className="hidden text-sm font-medium sm:inline-block">
-                  {user.name}
-                </span>
+                <div className="hidden flex-col sm:flex">
+                  <span className="text-sm font-medium">{user.name}</span>
+                  {user.email && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                      {user.email}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
             <Badge variant="outline" className="text-xs font-mono">

@@ -15,6 +15,7 @@ export default async function Page() {
       (meta.name as string) ??
       (authUser.email?.split("@")[0]) ??
       "Usuario",
+    email: authUser.email ?? undefined,
     avatar: (meta.avatar_url as string) ?? (meta.picture as string) ?? undefined,
   };
 
