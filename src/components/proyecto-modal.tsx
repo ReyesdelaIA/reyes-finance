@@ -60,6 +60,18 @@ interface Props {
   onDelete?: (id: number) => Promise<void>;
 }
 
+/** Obtiene el valor UF del día desde mindicador.cl (datos Banco Central Chile) */
+async function fetchValorUF(): Promise<number | null> {
+  try {
+    const res = await fetch("https://mindicador.cl/api/uf");
+    const data = await res.json();
+    const valor = data?.serie?.[0]?.valor;
+    return typeof valor === "number" ? valor : null;
+  } catch {
+    return null;
+  }
+}
+
 export function ProyectoModal({
   open,
   onClose,
@@ -69,14 +81,32 @@ export function ProyectoModal({
 }: Props) {
   const [form, setForm] = useState<ProyectoData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [ufCantidad, setUfCantidad] = useState<string>("");
+  const [ufValorHoy, setUfValorHoy] = useState<number | null>(null);
+  const [ufLoading, setUfLoading] = useState(false);
 
   const isEditing = !!initialData?.id;
 
   useEffect(() => {
     if (open) {
       setForm(initialData ?? EMPTY_FORM);
+      setUfCantidad("");
+      setUfLoading(true);
+      fetchValorUF().then((v) => {
+        setUfValorHoy(v);
+        setUfLoading(false);
+      });
     }
   }, [open, initialData]);
+
+  function aplicarUF(cantidad: string) {
+    setUfCantidad(cantidad);
+    const num = parseFloat(cantidad.replace(",", "."));
+    if (!Number.isNaN(num) && num > 0 && ufValorHoy != null) {
+      const precioCLP = Math.round(num * ufValorHoy);
+      updateField("precio", precioCLP);
+    }
+  }
 
   function updateField(field: keyof ProyectoData, value: string | number) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -131,47 +161,72 @@ export function ProyectoModal({
             />
           </div>
 
-          {/* Servicio + Precio */}
+          {/* Servicio */}
+          <div className="space-y-1.5">
+            <Label>Servicio Contratado</Label>
+            <Select
+              value={form.servicio_contratado}
+              onValueChange={(v) => updateField("servicio_contratado", v)}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar servicio" />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  ...SERVICIOS,
+                  ...(form.servicio_contratado &&
+                  !SERVICIOS.includes(form.servicio_contratado)
+                    ? [form.servicio_contratado]
+                    : []),
+                ].map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* UF + Precio */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Servicio Contratado</Label>
-              <Select
-                value={form.servicio_contratado}
-                onValueChange={(v) => updateField("servicio_contratado", v)}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar servicio" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    ...SERVICIOS,
-                    ...(form.servicio_contratado &&
-                    !SERVICIOS.includes(form.servicio_contratado)
-                      ? [form.servicio_contratado]
-                      : []),
-                  ].map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="uf">Cantidad UF</Label>
+              <Input
+                id="uf"
+                type="text"
+                inputMode="decimal"
+                placeholder={ufLoading ? "Cargando UF..." : "Ej: 17"}
+                value={ufCantidad}
+                onChange={(e) => aplicarUF(e.target.value)}
+                disabled={ufLoading}
+              />
+              {ufValorHoy != null && !ufLoading && (
+                <p className="text-xs text-muted-foreground">
+                  UF hoy: ${ufValorHoy.toLocaleString("es-CL")}
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="precio">Precio (CLP)</Label>
               <Input
                 id="precio"
-                type="number"
-                min={0}
-                placeholder="0"
-                value={form.precio}
-                onChange={(e) =>
+                type="text"
+                inputMode="numeric"
+                placeholder="$0"
+                value={
+                  form.precio === ""
+                    ? ""
+                    : `$${Number(form.precio).toLocaleString("es-CL")}`
+                }
+                onChange={(e) => {
+                  setUfCantidad("");
+                  const raw = e.target.value.replace(/\D/g, "");
                   updateField(
                     "precio",
-                    e.target.value === "" ? "" : Number(e.target.value)
-                  )
-                }
+                    raw === "" ? "" : Number(raw)
+                  );
+                }}
                 required
               />
             </div>

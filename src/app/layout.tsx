@@ -15,6 +15,16 @@ const fontMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Reyes de la IA Finance | Dashboard",
   description: "Dashboard Financiero de Reyes IA",
+  metadataBase: new URL("https://reyes-finance.vercel.app"),
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Reyes Finance",
+  },
+  icons: {
+    icon: "/isotipo.png",
+    apple: "/isotipo.png",
+  },
 };
 
 export default function RootLayout({
