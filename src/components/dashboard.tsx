@@ -86,6 +86,7 @@ interface DashboardProps {
 }
 
 type EstadoPagoFiltro = "todos" | "pago completo" | "esperando pago" | "por facturar";
+type PeriodoFiltro = "todos" | "este-mes" | "mes-pasado" | "este-trimestre" | "este-año" | "año-pasado";
 
 export function Dashboard({ initialUser }: DashboardProps) {
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
@@ -105,6 +106,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
   );
   const [estadoPagoFiltro, setEstadoPagoFiltro] =
     useState<EstadoPagoFiltro>("todos");
+  const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>("todos");
 
   async function fetchProyectos() {
     if (!supabase) {
@@ -186,6 +188,39 @@ export function Dashboard({ initialUser }: DashboardProps) {
       );
     }
 
+    // Filtro por período (basado en fecha_terminado)
+    if (periodoFiltro !== "todos" && periodoFiltro) {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const currentQuarter = Math.floor(currentMonth / 3);
+
+      result = result.filter((p) => {
+        if (!p.fecha_terminado) return false;
+        const fecha = new Date(p.fecha_terminado);
+        const fechaYear = fecha.getFullYear();
+        const fechaMonth = fecha.getMonth();
+        const fechaQuarter = Math.floor(fechaMonth / 3);
+
+        switch (periodoFiltro) {
+          case "este-mes":
+            return fechaYear === currentYear && fechaMonth === currentMonth;
+          case "mes-pasado":
+            const mesPasado = currentMonth === 0 ? 11 : currentMonth - 1;
+            const añoMesPasado = currentMonth === 0 ? currentYear - 1 : currentYear;
+            return fechaYear === añoMesPasado && fechaMonth === mesPasado;
+          case "este-trimestre":
+            return fechaYear === currentYear && fechaQuarter === currentQuarter;
+          case "este-año":
+            return fechaYear === currentYear;
+          case "año-pasado":
+            return fechaYear === currentYear - 1;
+          default:
+            return true;
+        }
+      });
+    }
+
     const dir = sortDirection === "asc" ? 1 : -1;
 
     return [...result].sort((a, b) => {
@@ -208,7 +243,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
       // sortKey === "cliente"
       return (a.cliente ?? "").localeCompare(b.cliente ?? "") * dir;
     });
-  }, [proyectos, search, sortKey, sortDirection, estadoPagoFiltro]);
+  }, [proyectos, search, sortKey, sortDirection, estadoPagoFiltro, periodoFiltro]);
 
   function handleSort(key: "cliente" | "precio" | "fecha_terminado") {
     if (sortKey === key) {
@@ -517,41 +552,73 @@ export function Dashboard({ initialUser }: DashboardProps) {
                 </CardDescription>
               </div>
               <div className="flex flex-col gap-3 sm:items-end sm:gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    Filtrar por estado de pago:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      { label: "Todos", value: "todos" as EstadoPagoFiltro },
-                      {
-                        label: "Pago completo",
-                        value: "pago completo" as EstadoPagoFiltro,
-                      },
-                      {
-                        label: "Esperando pago",
-                        value: "esperando pago" as EstadoPagoFiltro,
-                      },
-                      {
-                        label: "Por facturar",
-                        value: "por facturar" as EstadoPagoFiltro,
-                      },
-                    ].map((filtro) => (
-                      <Button
-                        key={filtro.value}
-                        type="button"
-                        variant={
-                          estadoPagoFiltro === filtro.value
-                            ? "default"
-                            : "outline"
-                        }
-                        size="xs"
-                        className="h-7 rounded-full px-3 text-xs"
-                        onClick={() => setEstadoPagoFiltro(filtro.value)}
-                      >
-                        {filtro.label}
-                      </Button>
-                    ))}
+                <div className="flex flex-col gap-2 w-full sm:w-auto">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      Estado de pago:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: "Todos", value: "todos" as EstadoPagoFiltro },
+                        {
+                          label: "Pago completo",
+                          value: "pago completo" as EstadoPagoFiltro,
+                        },
+                        {
+                          label: "Esperando pago",
+                          value: "esperando pago" as EstadoPagoFiltro,
+                        },
+                        {
+                          label: "Por facturar",
+                          value: "por facturar" as EstadoPagoFiltro,
+                        },
+                      ].map((filtro) => (
+                        <Button
+                          key={filtro.value}
+                          type="button"
+                          variant={
+                            estadoPagoFiltro === filtro.value
+                              ? "default"
+                              : "outline"
+                          }
+                          size="xs"
+                          className="h-7 rounded-full px-3 text-xs"
+                          onClick={() => setEstadoPagoFiltro(filtro.value)}
+                        >
+                          {filtro.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      Período:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: "Todos", value: "todos" as PeriodoFiltro },
+                        { label: "Este mes", value: "este-mes" as PeriodoFiltro },
+                        { label: "Mes pasado", value: "mes-pasado" as PeriodoFiltro },
+                        { label: "Este trimestre", value: "este-trimestre" as PeriodoFiltro },
+                        { label: "Este año", value: "este-año" as PeriodoFiltro },
+                        { label: "Año pasado", value: "año-pasado" as PeriodoFiltro },
+                      ].map((filtro) => (
+                        <Button
+                          key={filtro.value}
+                          type="button"
+                          variant={
+                            periodoFiltro === filtro.value
+                              ? "default"
+                              : "outline"
+                          }
+                          size="xs"
+                          className="h-7 rounded-full px-3 text-xs"
+                          onClick={() => setPeriodoFiltro(filtro.value)}
+                        >
+                          {filtro.label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
