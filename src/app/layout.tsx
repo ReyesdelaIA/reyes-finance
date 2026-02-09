@@ -22,8 +22,15 @@ export const metadata: Metadata = {
     title: "Reyes Finance",
   },
   icons: {
-    icon: "/isotipo.png",
-    apple: "/isotipo.png",
+    icon: [
+      { url: "/isotipo.png", sizes: "192x192", type: "image/png" },
+      { url: "/isotipo.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/isotipo.png", sizes: "180x180", type: "image/png" },
+      { url: "/isotipo.png", sizes: "152x152", type: "image/png" },
+      { url: "/isotipo.png", sizes: "120x120", type: "image/png" },
+    ],
   },
 };
 
