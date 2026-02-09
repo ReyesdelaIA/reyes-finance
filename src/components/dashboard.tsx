@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { ProyectoModal, type ProyectoData } from "@/components/proyecto-modal";
 import { AnalyticsCharts } from "@/components/analytics-charts";
 import { normalizeServicio } from "@/lib/utils";
+import { Download } from "lucide-react";
 
 export interface DashboardUser {
   name?: string;
@@ -245,6 +246,58 @@ export function Dashboard({ initialUser }: DashboardProps) {
       2026: byYear.get(2026) ?? 0,
     };
   }, [proyectos]);
+
+  // Exportar a CSV
+  function handleExportCSV() {
+    const headers = [
+      "Cliente",
+      "Servicio Contratado",
+      "Estado",
+      "Precio (CLP)",
+      "Contacto",
+      "Estado de Pago",
+      "Fecha Terminado",
+    ];
+
+    // Escapar valores que contengan comas o comillas
+    const escapeCSV = (value: string | number | null | undefined): string => {
+      if (value == null) return "";
+      const str = String(value);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = filtered.map((p) => [
+      escapeCSV(p.cliente),
+      escapeCSV(normalizeServicio(p.servicio_contratado) || p.servicio_contratado),
+      escapeCSV(p.estado),
+      escapeCSV(p.precio != null ? formatCLP(p.precio).replace(/[^\d]/g, "") : ""),
+      escapeCSV(p.contacto),
+      escapeCSV(p.estado_pago),
+      escapeCSV(p.fecha_terminado),
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
+
+    // Crear blob y descargar
+    const blob = new Blob(["\ufeff" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    }); // BOM para Excel
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const fecha = new Date().toISOString().split("T")[0];
+    link.download = `reyes-finance-proyectos-${fecha}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 
   function handleNew() {
     setEditingProject(null);
@@ -508,6 +561,18 @@ export function Dashboard({ initialUser }: DashboardProps) {
                     onChange={(e) => setSearch(e.target.value)}
                     className="sm:max-w-xs min-h-[44px] sm:min-h-0"
                   />
+                  {filtered.length > 0 && (
+                    <Button
+                      onClick={handleExportCSV}
+                      variant="outline"
+                      size="sm"
+                      className="min-h-[44px] gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      <span className="hidden sm:inline">Exportar CSV</span>
+                      <span className="sm:hidden">CSV</span>
+                    </Button>
+                  )}
                   <Button
                     onClick={handleNew}
                     size="sm"
