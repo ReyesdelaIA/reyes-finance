@@ -84,6 +84,8 @@ interface DashboardProps {
   initialUser?: DashboardUser | null;
 }
 
+type EstadoPagoFiltro = "todos" | "pago completo" | "esperando pago" | "por facturar";
+
 export function Dashboard({ initialUser }: DashboardProps) {
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +102,8 @@ export function Dashboard({ initialUser }: DashboardProps) {
   const [editingProject, setEditingProject] = useState<ProyectoData | null>(
     null
   );
+  const [estadoPagoFiltro, setEstadoPagoFiltro] =
+    useState<EstadoPagoFiltro>("todos");
 
   async function fetchProyectos() {
     if (!supabase) {
@@ -174,6 +178,13 @@ export function Dashboard({ initialUser }: DashboardProps) {
       result = result.filter((p) => p.cliente?.toLowerCase().includes(q));
     }
 
+    if (estadoPagoFiltro !== "todos") {
+      const target = estadoPagoFiltro.toLowerCase();
+      result = result.filter(
+        (p) => p.estado_pago?.toLowerCase() === target
+      );
+    }
+
     const dir = sortDirection === "asc" ? 1 : -1;
 
     return [...result].sort((a, b) => {
@@ -196,7 +207,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
       // sortKey === "cliente"
       return (a.cliente ?? "").localeCompare(b.cliente ?? "") * dir;
     });
-  }, [proyectos, search, sortKey, sortDirection]);
+  }, [proyectos, search, sortKey, sortDirection, estadoPagoFiltro]);
 
   function handleSort(key: "cliente" | "precio" | "fecha_terminado") {
     if (sortKey === key) {
@@ -452,16 +463,59 @@ export function Dashboard({ initialUser }: DashboardProps) {
                   Seguimiento completo del funnel de clientes
                 </CardDescription>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                <Input
-                  placeholder="Buscar cliente..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="sm:max-w-xs min-h-[44px] sm:min-h-0"
-                />
-                <Button onClick={handleNew} size="sm" className="min-h-[44px]">
-                  + Nuevo Proyecto
-                </Button>
+              <div className="flex flex-col gap-3 sm:items-end sm:gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    Filtrar por estado de pago:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: "Todos", value: "todos" as EstadoPagoFiltro },
+                      {
+                        label: "Pago completo",
+                        value: "pago completo" as EstadoPagoFiltro,
+                      },
+                      {
+                        label: "Esperando pago",
+                        value: "esperando pago" as EstadoPagoFiltro,
+                      },
+                      {
+                        label: "Por facturar",
+                        value: "por facturar" as EstadoPagoFiltro,
+                      },
+                    ].map((filtro) => (
+                      <Button
+                        key={filtro.value}
+                        type="button"
+                        variant={
+                          estadoPagoFiltro === filtro.value
+                            ? "default"
+                            : "outline"
+                        }
+                        size="xs"
+                        className="h-7 rounded-full px-3 text-xs"
+                        onClick={() => setEstadoPagoFiltro(filtro.value)}
+                      >
+                        {filtro.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <Input
+                    placeholder="Buscar cliente..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="sm:max-w-xs min-h-[44px] sm:min-h-0"
+                  />
+                  <Button
+                    onClick={handleNew}
+                    size="sm"
+                    className="min-h-[44px]"
+                  >
+                    + Nuevo Proyecto
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
