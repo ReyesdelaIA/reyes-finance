@@ -290,7 +290,11 @@ export function ProyectoModal({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="fecha">Fecha Servicio Terminado</Label>
+              <Label htmlFor="fecha">
+                {form.estado_pago?.toLowerCase() === "esperando pago"
+                  ? "Fecha de factura"
+                  : "Fecha Servicio Terminado"}
+              </Label>
               <Input
                 id="fecha"
                 type="date"
@@ -298,6 +302,11 @@ export function ProyectoModal({
                 onChange={(e) => updateField("fecha_terminado", e.target.value)}
                 className="min-h-[44px]"
               />
+              {form.estado_pago?.toLowerCase() === "esperando pago" && (
+                <p className="text-xs text-muted-foreground">
+                  Las empresas en Chile tienen 30 días para pagar. Si pasan más de 30 días, se mostrará como atrasado.
+                </p>
+              )}
             </div>
           </div>
 

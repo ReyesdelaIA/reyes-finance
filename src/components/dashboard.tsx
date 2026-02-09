@@ -70,12 +70,31 @@ function estadoBadgeClass(estado: string) {
   return "bg-muted text-muted-foreground border-border";
 }
 
-function estadoPagoBadgeClass(estadoPago: string) {
+/** Calcula días desde factura para "esperando pago" (usa fecha_terminado como fecha de factura) */
+function calcularDiasDesdeFactura(fechaTerminado: string | null | undefined): number | null {
+  if (!fechaTerminado) return null;
+  const fecha = new Date(fechaTerminado);
+  if (Number.isNaN(fecha.getTime())) return null;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  fecha.setHours(0, 0, 0, 0);
+  return Math.floor((hoy.getTime() - fecha.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function estadoPagoBadgeClass(estadoPago: string, fechaTerminado?: string | null) {
   const lower = estadoPago?.toLowerCase() ?? "";
   if (lower === "pago completo")
     return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-  if (lower === "esperando pago")
-    return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+  if (lower === "esperando pago") {
+    // Calcular días desde factura y cambiar color según mora
+    const dias = calcularDiasDesdeFactura(fechaTerminado);
+    if (dias === null) return "bg-amber-500/20 text-amber-400 border-amber-500/30"; // Sin fecha, color por defecto
+    
+    if (dias <= 30) return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"; // 0-30 días: verde tenue
+    if (dias <= 60) return "bg-amber-500/20 text-amber-400 border-amber-500/30"; // 31-60 días: amarillo
+    if (dias <= 90) return "bg-orange-500/20 text-orange-400 border-orange-500/30"; // 61-90 días: naranja
+    return "bg-red-500/20 text-red-400 border-red-500/30"; // 90+ días: rojo
+  }
   if (lower === "por facturar")
     return "bg-red-500/20 text-red-400 border-red-500/30";
   return "bg-muted text-muted-foreground border-border";
@@ -291,7 +310,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
       "Precio (CLP)",
       "Contacto",
       "Estado de Pago",
-      "Fecha Terminado",
+      "Fecha Terminado / Fecha Factura",
     ];
 
     // Escapar valores que contengan comas o comillas
@@ -699,7 +718,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
                         <Badge variant="outline" className={estadoBadgeClass(p.estado)}>
                           {p.estado}
                         </Badge>
-                        <Badge variant="outline" className={estadoPagoBadgeClass(p.estado_pago)}>
+                        <Badge variant="outline" className={estadoPagoBadgeClass(p.estado_pago, p.fecha_terminado)}>
                           {p.estado_pago}
                         </Badge>
                       </div>
@@ -795,7 +814,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
                         <TableCell>
                           <Badge
                             variant="outline"
-                            className={estadoPagoBadgeClass(p.estado_pago)}
+                            className={estadoPagoBadgeClass(p.estado_pago, p.fecha_terminado)}
                           >
                             {p.estado_pago}
                           </Badge>
