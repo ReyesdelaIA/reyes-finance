@@ -260,7 +260,12 @@ export function ProyectoModal({
               <Label>Estado de Pago</Label>
               <Select
                 value={form.estado_pago}
-                onValueChange={(v) => updateField("estado_pago", v)}
+                onValueChange={(v) => {
+                  updateField("estado_pago", v);
+                  if (v.toLowerCase() === "por facturar") {
+                    updateField("fecha_terminado", "");
+                  }
+                }}
                 required
               >
                 <SelectTrigger className="min-h-[44px]">
@@ -290,7 +295,20 @@ export function ProyectoModal({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="fecha">Fecha factura</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="fecha">Fecha factura</Label>
+                {form.fecha_terminado && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => updateField("fecha_terminado", "")}
+                  >
+                    Quitar fecha
+                  </Button>
+                )}
+              </div>
               <Input
                 id="fecha"
                 type="date"
