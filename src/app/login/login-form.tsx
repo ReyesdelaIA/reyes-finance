@@ -71,7 +71,7 @@ export function LoginForm({ initialError }: LoginFormProps) {
           <Button
             type="button"
             variant="outline"
-            className="w-full gap-3 py-6"
+            className="w-full cursor-pointer gap-3 py-6"
             onClick={handleGoogleLogin}
             disabled={loading}
           >

@@ -56,6 +56,24 @@ npm run build
 
 Si el build pasa en tu máquina, pasará en Vercel.
 
+## Seguridad: RLS en tabla proyectos
+
+Para que solo usuarios logueados puedan leer y modificar proyectos (recomendado):
+
+1. En Supabase: **SQL Editor** → New query.
+2. Pega y ejecuta el contenido del archivo **`supabase-rls-proyectos.sql`** del proyecto.
+
+Sin esto, cualquiera con la URL de la app podría en teoría acceder si supiera tu clave. Con RLS solo cuentas autenticadas tienen acceso.
+
+## Foto de perfil (avatar)
+
+Para que cada usuario pueda subir su propia foto en el dashboard:
+
+1. En Supabase: **Storage** → **New bucket** → id = `avatars`, marcar **Public** → Create.
+2. En **SQL Editor**: pegar y ejecutar el contenido del archivo `supabase-avatar-setup.sql` del proyecto (crea la tabla `profiles` y las políticas del bucket).
+
+Luego, en la app, haz clic en tu avatar (o en la inicial) en la esquina superior derecha y elige una imagen PNG o JPG.
+
 ## Supabase: configuración para producción
 
 1. **RLS (Row Level Security):** Asegúrate de que la tabla `proyectos` tenga políticas que permitan `SELECT`, `INSERT`, `UPDATE`, `DELETE` según tu lógica. Si usas la anon key, las políticas RLS definen el acceso.
@@ -67,6 +85,17 @@ Si el build pasa en tu máquina, pasará en Vercel.
    - **Redirect URLs:** agrega exactamente:
      - `http://localhost:3000/auth/callback` (desarrollo)
      - `https://reyes-finance.vercel.app/auth/callback` (producción)
+
+## Backups en Supabase
+
+Para no perder datos si algo falla en la base:
+
+1. Entra a [Supabase Dashboard](https://supabase.com/dashboard) → tu proyecto.
+2. Ve a **Settings** → **Backups** (o **Database** → **Backups** según tu plan).
+3. Revisa que los backups automáticos estén activos. En planes de pago suelen ser diarios.
+4. Si usas plan gratuito, considera exportar datos importantes de vez en cuando: **Table Editor** → tabla `proyectos` → exportar como CSV.
+
+Así tus ventas y pipeline quedan cubiertos ante fallos o borrados accidentales.
 
 ## Comandos útiles
 

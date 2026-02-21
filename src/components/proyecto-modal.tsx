@@ -290,11 +290,7 @@ export function ProyectoModal({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="fecha">
-                {form.estado_pago?.toLowerCase() === "esperando pago"
-                  ? "Fecha de factura"
-                  : "Fecha Servicio Terminado"}
-              </Label>
+              <Label htmlFor="fecha">Fecha factura</Label>
               <Input
                 id="fecha"
                 type="date"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import {
@@ -24,9 +24,10 @@ import { Input } from "@/components/ui/input";
 import { ProyectoModal, type ProyectoData } from "@/components/proyecto-modal";
 import { AnalyticsCharts } from "@/components/analytics-charts";
 import { normalizeServicio } from "@/lib/utils";
-import { Download } from "lucide-react";
+import { Download, Copy } from "lucide-react";
 
 export interface DashboardUser {
+  id?: string;
   name?: string;
   email?: string;
   avatar?: string;
@@ -126,6 +127,19 @@ export function Dashboard({ initialUser }: DashboardProps) {
   const [estadoPagoFiltro, setEstadoPagoFiltro] =
     useState<EstadoPagoFiltro>("todos");
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>("todos");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const successMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showSuccess(msg: string) {
+    if (successMessageTimeoutRef.current) clearTimeout(successMessageTimeoutRef.current);
+    setSuccessMessage(msg);
+    successMessageTimeoutRef.current = setTimeout(() => {
+      setSuccessMessage(null);
+      successMessageTimeoutRef.current = null;
+    }, 3000);
+  }
 
   async function fetchProyectos() {
     if (!supabase) {
@@ -159,6 +173,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
     if (initialUser) setUser(initialUser);
     if (!supabase) return;
     const applyUser = (u: {
+      id?: string;
       user_metadata?: Record<string, unknown>;
       email?: string;
       identities?: Array<{ identity_data?: Record<string, unknown> }>;
@@ -169,19 +184,29 @@ export function Dashboard({ initialUser }: DashboardProps) {
       const avatar =
         (meta.avatar_url as string) ??
         (meta.picture as string) ??
+        (meta.image as string) ??
+        (meta.profile_image as string) ??
         (idData.avatar_url as string) ??
         (idData.picture as string) ??
+        (idData.image as string) ??
+        (idData.profile_image as string) ??
         undefined;
-      setUser({
-        name:
-          (meta.full_name as string) ??
-          (meta.name as string) ??
-          (idData.full_name as string) ??
-          (idData.name as string) ??
-          (u.email?.split("@")[0]) ??
-          "Usuario",
-        email: u.email ?? undefined,
-        avatar,
+      setUser((prev) => {
+        const next = {
+          id: u.id,
+          name:
+            (meta.full_name as string) ??
+            (meta.name as string) ??
+            (idData.full_name as string) ??
+            (idData.name as string) ??
+            (u.email?.split("@")[0]) ??
+            "Usuario",
+          email: u.email ?? undefined,
+          // Mantener avatar subido por el usuario (Supabase Storage) si ya estaba
+          avatar:
+            prev?.avatar?.includes("supabase.co/storage") ? prev.avatar : avatar,
+        };
+        return next;
       });
     };
     supabase.auth.getSession().then(({ data: { session } }) => applyUser(session?.user ?? null));
@@ -190,6 +215,10 @@ export function Dashboard({ initialUser }: DashboardProps) {
     );
     return () => subscription.unsubscribe();
   }, [initialUser]);
+
+  useEffect(() => () => {
+    if (successMessageTimeoutRef.current) clearTimeout(successMessageTimeoutRef.current);
+  }, []);
 
   // Filtered + sorted projects
   const filtered = useMemo(() => {
@@ -286,6 +315,15 @@ export function Dashboard({ initialUser }: DashboardProps) {
     .filter((p) => p.estado_pago?.toLowerCase() === "esperando pago")
     .reduce((acc, p) => acc + (p.precio ?? 0), 0);
 
+  // Proyectos en mora: "esperando pago" hace más de 60 días
+  const proyectosEnMora = useMemo(() => {
+    return proyectos.filter((p) => {
+      if (p.estado_pago?.toLowerCase() !== "esperando pago") return false;
+      const dias = calcularDiasDesdeFactura(p.fecha_terminado);
+      return dias != null && dias > 60;
+    });
+  }, [proyectos]);
+
   // Ventas por año (según fecha_terminado)
   const ventasPorAnio = useMemo(() => {
     const byYear = new Map<number, number>();
@@ -310,7 +348,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
       "Precio (CLP)",
       "Contacto",
       "Estado de Pago",
-      "Fecha Terminado / Fecha Factura",
+      "Fecha Factura",
     ];
 
     // Escapar valores que contengan comas o comillas
@@ -358,6 +396,46 @@ export function Dashboard({ initialUser }: DashboardProps) {
     setModalOpen(true);
   }
 
+  function handleDuplicate(p: Proyecto) {
+    setEditingProject({
+      cliente: p.cliente ?? "",
+      servicio_contratado: normalizeServicio(p.servicio_contratado) || (p.servicio_contratado ?? ""),
+      estado: p.estado ?? "",
+      precio: p.precio ?? "",
+      contacto: p.contacto ?? "",
+      estado_pago: p.estado_pago ?? "",
+      fecha_terminado: "", // Dejar vacío para que lo actualicen
+    });
+    setModalOpen(true);
+  }
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id || !supabase) return;
+    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+    if (!["png", "jpg", "jpeg", "webp"].includes(ext)) return;
+    setAvatarUploading(true);
+    try {
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      await supabase.from("profiles").upsert(
+        { id: user.id, avatar_url: publicUrl, updated_at: new Date().toISOString() },
+        { onConflict: "id" }
+      );
+      setUser((prev) => (prev ? { ...prev, avatar: publicUrl } : null));
+      showSuccess("Foto actualizada");
+    } catch (err) {
+      console.error("Error subiendo avatar:", err);
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = "";
+    }
+  }
+
   function handleEdit(p: Proyecto) {
     setEditingProject({
       id: p.id,
@@ -397,6 +475,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
     }
 
     await fetchProyectos();
+    showSuccess("Proyecto guardado");
   }
 
   async function handleDelete(id: number) {
@@ -413,6 +492,16 @@ export function Dashboard({ initialUser }: DashboardProps) {
 
   return (
     <div className="min-h-screen bg-background pb-24 sm:pb-8">
+      {/* Toast de éxito */}
+      {successMessage && (
+        <div
+          className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-50 rounded-lg bg-emerald-600 text-white px-4 py-3 text-sm font-medium shadow-lg animate-in fade-in slide-in-from-bottom-2"
+          role="status"
+        >
+          {successMessage}
+        </div>
+      )}
+
       {/* Header - compacto en móvil */}
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-5">
@@ -439,22 +528,37 @@ export function Dashboard({ initialUser }: DashboardProps) {
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {user && (
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-border">
-                  {user.avatar ? (
-                    <Image
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+                <button
+                  type="button"
+                  onClick={() => { if (!avatarUploading) avatarInputRef.current?.click(); }}
+                  className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  title="Cambiar foto de perfil"
+                  disabled={avatarUploading}
+                >
+                  {avatarUploading ? (
+                    <div className="h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center">
+                      <div className="h-4 w-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : user.avatar ? (
+                    <img
                       src={user.avatar}
                       alt={user.name ?? "Avatar"}
-                      width={36}
-                      height={36}
-                      className="h-8 w-8 sm:h-9 sm:w-9 object-cover"
-                      unoptimized
+                      className="h-8 w-8 sm:h-9 sm:w-9 w-full object-cover"
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center text-xs sm:text-sm font-medium text-muted-foreground">
                       {(user.name ?? "U").charAt(0).toUpperCase()}
                     </div>
                   )}
-                </div>
+                </button>
                 <div className="hidden sm:flex flex-col min-w-0 max-w-[140px]">
                   <span className="text-sm font-medium truncate">{user.name}</span>
                   {user.email && (
@@ -524,6 +628,26 @@ export function Dashboard({ initialUser }: DashboardProps) {
             </CardHeader>
           </Card>
         </div>
+
+        {/* Aviso de mora */}
+        {!loading && proyectosEnMora.length > 0 && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-amber-200">
+              <span className="font-medium">Atención:</span> tienes{" "}
+              {proyectosEnMora.length} proyecto{proyectosEnMora.length !== 1 ? "s" : ""} en
+              &quot;esperando pago&quot; hace más de 60 días.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+              onClick={() => setEstadoPagoFiltro("esperando pago")}
+            >
+              Ver listado
+            </Button>
+          </div>
+        )}
 
         {/* Ventas por año */}
         <div className="flex flex-wrap gap-4 sm:gap-6 rounded-lg border border-border/40 bg-muted/20 px-4 sm:px-5 py-3 sm:py-4">
@@ -714,13 +838,29 @@ export function Dashboard({ initialUser }: DashboardProps) {
                           {p.precio != null ? formatCLP(p.precio) : "--"}
                         </p>
                       </div>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        <Badge variant="outline" className={estadoBadgeClass(p.estado)}>
-                          {p.estado}
-                        </Badge>
-                        <Badge variant="outline" className={estadoPagoBadgeClass(p.estado_pago, p.fecha_terminado)}>
-                          {p.estado_pago}
-                        </Badge>
+                      <div className="flex flex-wrap gap-1.5 mt-2 items-center justify-between">
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="outline" className={estadoBadgeClass(p.estado)}>
+                            {p.estado}
+                          </Badge>
+                          <Badge variant="outline" className={estadoPagoBadgeClass(p.estado_pago, p.fecha_terminado)}>
+                            {p.estado_pago}
+                          </Badge>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 gap-1 text-xs"
+                          title="Duplicar"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDuplicate(p);
+                          }}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Duplicar
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -770,7 +910,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
                         onClick={() => handleSort("fecha_terminado")}
                       >
                         <div className="flex items-center justify-end gap-1">
-                          <span>Fecha Terminado</span>
+                          <span>Fecha Factura</span>
                           <span className="text-[10px] text-muted-foreground">
                             {sortKey === "fecha_terminado"
                               ? sortDirection === "asc"
@@ -780,6 +920,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
                           </span>
                         </div>
                       </TableHead>
+                      <TableHead className="w-[2.5rem]" aria-label="Duplicar" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -823,6 +964,18 @@ export function Dashboard({ initialUser }: DashboardProps) {
                           {p.fecha_terminado
                             ? formatDate(p.fecha_terminado)
                             : "--"}
+                        </TableCell>
+                        <TableCell className="w-[2.5rem]" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            className="h-8 w-8"
+                            title="Duplicar proyecto"
+                            onClick={() => handleDuplicate(p)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

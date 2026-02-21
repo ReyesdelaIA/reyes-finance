@@ -56,21 +56,21 @@ interface Props {
 }
 
 export function AnalyticsCharts({ proyectos }: Props) {
-  // --- Bar chart: rolling last 12 months (solo "pago completo") ---
-  const completedWithDate = proyectos.filter(
+  // --- Bar chart: rolling last 12 months (todo facturado, excepto "por facturar") ---
+  const billedWithDate = proyectos.filter(
     (p) =>
       p.fecha_terminado &&
       p.precio != null &&
-      p.estado_pago?.toLowerCase() === "pago completo"
+      p.estado_pago?.toLowerCase() !== "por facturar"
   );
 
   type BarPoint = { name: string; total: number; year: number };
   let barData: BarPoint[] = [];
 
-  if (completedWithDate.length > 0) {
+  if (billedWithDate.length > 0) {
     // 1) Agregar todos los montos por año-mes
     const monthlyMap = new Map<string, number>(); // key: "YYYY-M" con M 0-11
-    for (const p of completedWithDate) {
+    for (const p of billedWithDate) {
       const d = new Date(p.fecha_terminado as string);
       const key = `${d.getFullYear()}-${d.getMonth()}`;
       monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + (p.precio as number));
@@ -104,10 +104,10 @@ export function AnalyticsCharts({ proyectos }: Props) {
     barData = points;
   }
 
-  // --- Pie chart: servicios más contratados (ventas históricas por línea) ---
+  // --- Pie chart: servicios más contratados (todo facturado, excepto "por facturar") ---
   const serviceMap = new Map<string, number>();
   for (const p of proyectos) {
-    if (p.precio == null) continue;
+    if (p.precio == null || p.estado_pago?.toLowerCase() === "por facturar") continue;
     const nombre =
       normalizeServicio(p.servicio_contratado) ||
       (p.servicio_contratado || "Sin especificar").trim();
