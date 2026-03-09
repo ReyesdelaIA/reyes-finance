@@ -26,7 +26,7 @@ export default async function Page() {
   let profileAvatar: string | undefined;
   try {
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("finance_profiles")
       .select("avatar_url")
       .eq("id", authUser.id)
       .maybeSingle();
