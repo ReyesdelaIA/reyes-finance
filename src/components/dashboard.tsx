@@ -151,7 +151,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
     }
 
     const { data, error } = await supabase
-      .from("finance_proyectos")
+      .from("proyectos")
       .select("*")
       .order("id", { ascending: true });
 
@@ -422,7 +422,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
         .upload(path, file, { upsert: true });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-      await supabase.from("finance_profiles").upsert(
+      await supabase.from("profiles").upsert(
         { id: user.id, avatar_url: publicUrl, updated_at: new Date().toISOString() },
         { onConflict: "id" }
       );
@@ -465,12 +465,12 @@ export function Dashboard({ initialUser }: DashboardProps) {
 
     if (data.id) {
       const { error } = await supabase
-        .from("finance_proyectos")
+        .from("proyectos")
         .update(payload)
         .eq("id", data.id);
       if (error) throw new Error(error.message);
     } else {
-      const { error } = await supabase.from("finance_proyectos").insert(payload);
+      const { error } = await supabase.from("proyectos").insert(payload);
       if (error) throw new Error(error.message);
     }
 
@@ -482,7 +482,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
     if (!supabase) return;
 
     const { error } = await supabase
-      .from("finance_proyectos")
+      .from("proyectos")
       .delete()
       .eq("id", id);
 
