@@ -28,7 +28,9 @@ type GmailMessage = {
   payload: { headers: Array<{ name: string; value: string }> };
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const debug = searchParams.get("debug") === "1";
   const supabase = await createClient();
   const {
     data: { session },
@@ -82,6 +84,8 @@ export async function GET() {
     lastSentDate: string;
   }> = [];
 
+  const debugLog: Array<Record<string, unknown>> = [];
+
   const BATCH = 10;
   for (let i = 0; i < threads.length; i += BATCH) {
     const batch = threads.slice(i, i + BATCH);
@@ -110,22 +114,27 @@ export async function GET() {
           }
         }
 
-        // No message from Felipe in this thread
-        if (lastFelipeIdx === -1) return null;
+        const allFroms = messages.map((m) => getHeader(m.payload?.headers ?? [], "From"));
+        const subject0 = getHeader(messages[0].payload?.headers ?? [], "Subject");
+
+        if (lastFelipeIdx === -1) {
+          if (debug) debugLog.push({ threadId: thread.id, subject: subject0, reason: "no_felipe_message", froms: allFroms });
+          return null;
+        }
 
         const lastFelipeMsg = messages[lastFelipeIdx];
         const lastFelipeMs = Number(lastFelipeMsg.internalDate);
 
-        // Felipe's last message must be older than 5 days
-        if (isNaN(lastFelipeMs) || lastFelipeMs > fiveDaysAgo) return null;
+        if (isNaN(lastFelipeMs) || lastFelipeMs > fiveDaysAgo) {
+          if (debug) debugLog.push({ threadId: thread.id, subject: subject0, reason: "too_recent", lastFelipeDate: new Date(lastFelipeMs).toISOString(), froms: allFroms });
+          return null;
+        }
 
-        // Check if there's any client response AFTER Felipe's last message
-        // (ignoring any messages from Felipe himself and automated noreply addresses)
-        const hasClientReply = messages.slice(lastFelipeIdx + 1).some((msg) => {
+        const messagesAfter = messages.slice(lastFelipeIdx + 1);
+        const clientReplies = messagesAfter.filter((msg) => {
           const from = getHeader(msg.payload?.headers ?? [], "From");
           const fromLower = from.toLowerCase();
           if (isFromMe(from)) return false;
-          // Ignore automated/notification emails
           if (
             fromLower.includes("noreply") ||
             fromLower.includes("no-reply") ||
@@ -137,12 +146,13 @@ export async function GET() {
           return true;
         });
 
-        if (hasClientReply) return null;
+        if (clientReplies.length > 0) {
+          if (debug) debugLog.push({ threadId: thread.id, subject: subject0, reason: "has_client_reply", replies: clientReplies.map((m) => getHeader(m.payload?.headers ?? [], "From")) });
+          return null;
+        }
 
-        // Get client info from Felipe's last message To header
         const headers = lastFelipeMsg.payload?.headers ?? [];
         const to = getHeader(headers, "To");
-        // Handle multiple recipients — take the first non-Felipe one
         const toAddresses = to.split(",").map((s) => s.trim());
         let clientName = "";
         let clientEmail = "";
@@ -155,12 +165,17 @@ export async function GET() {
           }
         }
 
-        if (!clientEmail) return null;
+        if (!clientEmail) {
+          if (debug) debugLog.push({ threadId: thread.id, subject: subject0, reason: "no_client_email", to, froms: allFroms });
+          return null;
+        }
 
         const subject = getHeader(headers, "Subject");
         const daysSinceLastReply = Math.floor(
           (Date.now() - lastFelipeMs) / (1000 * 60 * 60 * 24)
         );
+
+        if (debug) debugLog.push({ threadId: thread.id, subject, reason: "INCLUDED", clientEmail, daysSinceLastReply });
 
         return {
           threadId: thread.id,
@@ -179,6 +194,10 @@ export async function GET() {
   }
 
   pending.sort((a, b) => b.daysSinceLastReply - a.daysSinceLastReply);
+
+  if (debug) {
+    return NextResponse.json({ pending, totalThreads: threads.length, debug: debugLog });
+  }
 
   return NextResponse.json({ pending });
 }
