@@ -193,7 +193,7 @@ export async function GET(request: Request) {
     }
   }
 
-  pending.sort((a, b) => b.daysSinceLastReply - a.daysSinceLastReply);
+  pending.sort((a, b) => a.daysSinceLastReply - b.daysSinceLastReply);
 
   if (debug) {
     return NextResponse.json({ pending, totalThreads: threads.length, debug: debugLog });

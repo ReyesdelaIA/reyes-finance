@@ -590,7 +590,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
                 disabled
               >
                 <LayoutDashboard className="h-4 w-4" />
-                <span className="hidden sm:inline">Dashboard</span>
+                <span className="hidden sm:inline">Finanzas</span>
               </Button>
               <Link href="/agente">
                 <Button

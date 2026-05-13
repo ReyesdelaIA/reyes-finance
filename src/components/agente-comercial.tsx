@@ -4,13 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Clock, Send, Bot, LayoutDashboard } from "lucide-react";
@@ -156,14 +150,14 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Nav tabs */}
             <nav className="flex items-center gap-1">
-              <Link href="/">
+              <Link href="/finanzas">
                 <Button
                   variant="ghost"
                   size="sm"
                   className="gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground"
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  <span className="hidden sm:inline">Dashboard</span>
+                  <span className="hidden sm:inline">Finanzas</span>
                 </Button>
               </Link>
               <Button
@@ -275,22 +269,20 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
 
             {threads.length === 0 ? (
               <Card className="border-emerald-500/20">
-                <CardContent className="flex items-center gap-3 py-6">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
-                    <Mail className="h-5 w-5 text-emerald-400" />
+                <CardContent className="flex items-center gap-3 py-5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
+                    <Mail className="h-4 w-4 text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-emerald-400">
-                      Todo al día
-                    </p>
+                    <p className="text-sm font-medium text-emerald-400">Todo al día</p>
                     <p className="text-xs text-muted-foreground">
-                      No hay conversaciones enviadas sin respuesta por más de 5 días.
+                      Sin conversaciones sin respuesta por más de 5 días.
                     </p>
                   </div>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
                 {threads.map((thread) => {
                   const draftStatus = drafts[thread.threadId] ?? "idle";
                   const firstName = thread.clientName.split(" ")[0] || thread.clientName;
@@ -300,70 +292,55 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
                       key={thread.threadId}
                       className="border-border/50 transition-colors hover:border-border"
                     >
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-2">
+                      <CardContent className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          {/* Left: name + email */}
                           <div className="min-w-0 flex-1">
-                            <CardTitle className="text-base truncate">
-                              {thread.clientName}
-                            </CardTitle>
-                            <CardDescription className="truncate text-xs mt-0.5">
-                              {thread.clientEmail}
-                            </CardDescription>
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className={`shrink-0 text-xs ${urgencyBadge(thread.daysSinceLastReply)}`}
-                          >
-                            <Clock className="mr-1 h-3 w-3" />
-                            {thread.daysSinceLastReply}d
-                          </Badge>
-                        </div>
-                        {thread.subject && (
-                          <p className="truncate text-xs text-muted-foreground mt-1 italic">
-                            {thread.subject}
-                          </p>
-                        )}
-                      </CardHeader>
-
-                      <CardContent className="space-y-3">
-                        {/* Draft preview */}
-                        <div className="rounded-md border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
-                          {`Hola ${firstName}, ¿cómo estás?\n\nSolo escribo por seguimiento a las propuestas. Cualquier duda que tengas feliz conversamos.\n\nSaludos!\nFelipe`}
-                        </div>
-
-                        {/* Action button */}
-                        {draftStatus === "done" ? (
-                          <div className="flex items-center gap-2 text-xs text-emerald-400">
-                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20">
-                              <Send className="h-3 w-3" />
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium truncate">{thread.clientName}</span>
+                              <Badge
+                                variant="outline"
+                                className={`shrink-0 text-[10px] px-1.5 py-0 ${urgencyBadge(thread.daysSinceLastReply)}`}
+                              >
+                                <Clock className="mr-0.5 h-2.5 w-2.5" />
+                                {thread.daysSinceLastReply}d
+                              </Badge>
                             </div>
-                            Borrador creado en Gmail
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {thread.clientEmail}
+                              {thread.subject && (
+                                <span className="ml-2 italic opacity-70">{thread.subject}</span>
+                              )}
+                            </p>
                           </div>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full gap-2"
-                            disabled={draftStatus === "loading"}
-                            onClick={() => handleCrearDraft(thread)}
-                          >
-                            {draftStatus === "loading" ? (
-                              <>
-                                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground border-t-foreground" />
-                                Creando borrador...
-                              </>
-                            ) : (
-                              <>
-                                <Send className="h-3.5 w-3.5" />
-                                Crear borrador en Gmail
-                              </>
-                            )}
-                          </Button>
-                        )}
+
+                          {/* Right: action */}
+                          {draftStatus === "done" ? (
+                            <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-emerald-400">
+                              <Send className="h-3 w-3" />
+                              Borrador listo
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 h-7 px-2.5 text-xs gap-1.5"
+                              disabled={draftStatus === "loading"}
+                              onClick={() => handleCrearDraft(thread)}
+                            >
+                              {draftStatus === "loading" ? (
+                                <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-foreground" />
+                              ) : (
+                                <Send className="h-3 w-3" />
+                              )}
+                              {draftStatus === "loading" ? "..." : "Borrador"}
+                            </Button>
+                          )}
+                        </div>
 
                         {draftStatus === "error" && (
-                          <p className="text-xs text-destructive">
-                            Error al crear el borrador. Intenta de nuevo.
+                          <p className="mt-1 text-[11px] text-destructive">
+                            Error al crear el borrador.
                           </p>
                         )}
                       </CardContent>

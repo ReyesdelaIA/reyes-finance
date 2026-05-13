@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { HubPage } from "@/components/hub";
+import { Dashboard } from "@/components/dashboard";
 
-export default async function Page() {
+export default async function FinanzasPage() {
   const supabase = await createClient();
   const { data: { user: authUser } } = await supabase.auth.getUser();
 
@@ -19,6 +19,8 @@ export default async function Page() {
     (meta.profile_image as string) ??
     (idMeta.avatar_url as string) ??
     (idMeta.picture as string) ??
+    (idMeta.image as string) ??
+    (idMeta.profile_image as string) ??
     undefined;
 
   let profileAvatar: string | undefined;
@@ -46,5 +48,5 @@ export default async function Page() {
     avatar: profileAvatar ?? avatar,
   };
 
-  return <HubPage initialUser={user} />;
+  return <Dashboard initialUser={user} />;
 }
