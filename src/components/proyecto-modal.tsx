@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
+import { esEsperandoPago, fechaLocalHoyISO } from "@/lib/utils";
 
 export interface ProyectoData {
   id?: number;
@@ -84,12 +85,20 @@ export function ProyectoModal({
   const [ufCantidad, setUfCantidad] = useState<string>("");
   const [ufValorHoy, setUfValorHoy] = useState<number | null>(null);
   const [ufLoading, setUfLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const isEditing = !!initialData?.id;
 
   useEffect(() => {
     if (open) {
-      setForm(initialData ?? EMPTY_FORM);
+      setSaveError(null);
+      const base = initialData ?? EMPTY_FORM;
+      const conFechaFacturaSiAplica =
+        esEsperandoPago(base.estado_pago) &&
+        !String(base.fecha_terminado ?? "").trim()
+          ? { ...base, fecha_terminado: fechaLocalHoyISO() }
+          : base;
+      setForm(conFechaFacturaSiAplica);
       setUfCantidad("");
       setUfLoading(true);
       fetchValorUF().then((v) => {
@@ -114,10 +123,15 @@ export function ProyectoModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSaveError(null);
     setSaving(true);
     try {
       await onSave(form);
       onClose();
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "No se pudo guardar el proyecto."
+      );
     } finally {
       setSaving(false);
     }
@@ -261,10 +275,18 @@ export function ProyectoModal({
               <Select
                 value={form.estado_pago}
                 onValueChange={(v) => {
-                  updateField("estado_pago", v);
-                  if (v.toLowerCase() === "por facturar") {
-                    updateField("fecha_terminado", "");
-                  }
+                  setForm((prev) => {
+                    const next = { ...prev, estado_pago: v };
+                    if (v.toLowerCase() === "por facturar") {
+                      next.fecha_terminado = "";
+                    } else if (
+                      esEsperandoPago(v) &&
+                      !String(prev.fecha_terminado ?? "").trim()
+                    ) {
+                      next.fecha_terminado = fechaLocalHoyISO();
+                    }
+                    return next;
+                  });
                 }}
                 required
               >
@@ -316,13 +338,19 @@ export function ProyectoModal({
                 onChange={(e) => updateField("fecha_terminado", e.target.value)}
                 className="min-h-[44px]"
               />
-              {form.estado_pago?.toLowerCase() === "esperando pago" && (
+              {esEsperandoPago(form.estado_pago) && (
                 <p className="text-xs text-muted-foreground">
                   Las empresas en Chile tienen 30 días para pagar. Si pasan más de 30 días, se mostrará como atrasado.
                 </p>
               )}
             </div>
           </div>
+
+          {saveError ? (
+            <p className="text-sm text-destructive" role="alert">
+              {saveError}
+            </p>
+          ) : null}
 
           {/* Actions */}
           <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-4">
