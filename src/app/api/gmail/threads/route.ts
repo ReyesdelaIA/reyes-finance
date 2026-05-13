@@ -19,6 +19,15 @@ function getHeader(headers: Array<{ name: string; value: string }>, name: string
   return headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
 }
 
+function isFromMe(from: string): boolean {
+  return from.toLowerCase().includes(MY_EMAIL.toLowerCase());
+}
+
+type GmailMessage = {
+  internalDate: string;
+  payload: { headers: Array<{ name: string; value: string }> };
+};
+
 export async function GET() {
   const supabase = await createClient();
   const {
@@ -40,13 +49,14 @@ export async function GET() {
     );
   }
 
-  // Date 60 days ago in YYYY/MM/DD format
+  // Date 60 days ago
   const since = new Date();
   since.setDate(since.getDate() - DAYS_LOOKBACK);
   const sinceStr = `${since.getFullYear()}/${String(since.getMonth() + 1).padStart(2, "0")}/${String(since.getDate()).padStart(2, "0")}`;
 
+  // Search threads that include sent messages from Felipe in the last 60 days
   const threadsRes = await fetch(
-    `${GMAIL_API}/threads?q=in:sent+after:${sinceStr}&maxResults=100`,
+    `${GMAIL_API}/threads?q=${encodeURIComponent(`from:${MY_EMAIL} after:${sinceStr}`)}&maxResults=200`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
 
@@ -63,7 +73,6 @@ export async function GET() {
 
   const fiveDaysAgo = Date.now() - DAYS_NO_REPLY * 24 * 60 * 60 * 1000;
 
-  // Fetch threads in parallel batches of 10
   const pending: Array<{
     threadId: string;
     clientName: string;
@@ -84,40 +93,73 @@ export async function GET() {
         );
         if (!res.ok) return null;
         const data = await res.json();
-        const messages: Array<{
-          internalDate: string;
-          payload: { headers: Array<{ name: string; value: string }> };
-        }> = data.messages ?? [];
+        const messages: GmailMessage[] = data.messages ?? [];
         if (messages.length === 0) return null;
 
         messages.sort(
           (a, b) => Number(a.internalDate) - Number(b.internalDate)
         );
 
-        const lastMsg = messages[messages.length - 1];
-        const headers = lastMsg.payload?.headers ?? [];
+        // Find the LAST message sent by Felipe
+        let lastFelipeIdx = -1;
+        for (let j = messages.length - 1; j >= 0; j--) {
+          const from = getHeader(messages[j].payload?.headers ?? [], "From");
+          if (isFromMe(from)) {
+            lastFelipeIdx = j;
+            break;
+          }
+        }
 
-        const from = getHeader(headers, "From");
-        const fromEmail = parseNameEmail(from).email.toLowerCase();
+        // No message from Felipe in this thread
+        if (lastFelipeIdx === -1) return null;
 
-        // Last message must be from Felipe (no client reply yet)
-        if (!fromEmail.includes(MY_EMAIL.toLowerCase())) return null;
+        const lastFelipeMsg = messages[lastFelipeIdx];
+        const lastFelipeMs = Number(lastFelipeMsg.internalDate);
 
-        const dateMs = Number(lastMsg.internalDate);
-        if (isNaN(dateMs) || dateMs > fiveDaysAgo) return null;
+        // Felipe's last message must be older than 5 days
+        if (isNaN(lastFelipeMs) || lastFelipeMs > fiveDaysAgo) return null;
 
+        // Check if there's any client response AFTER Felipe's last message
+        // (ignoring any messages from Felipe himself and automated noreply addresses)
+        const hasClientReply = messages.slice(lastFelipeIdx + 1).some((msg) => {
+          const from = getHeader(msg.payload?.headers ?? [], "From");
+          const fromLower = from.toLowerCase();
+          if (isFromMe(from)) return false;
+          // Ignore automated/notification emails
+          if (
+            fromLower.includes("noreply") ||
+            fromLower.includes("no-reply") ||
+            fromLower.includes("mailer-daemon") ||
+            fromLower.includes("postmaster") ||
+            fromLower.includes("notifications@") ||
+            fromLower.includes("notify@")
+          ) return false;
+          return true;
+        });
+
+        if (hasClientReply) return null;
+
+        // Get client info from Felipe's last message To header
+        const headers = lastFelipeMsg.payload?.headers ?? [];
         const to = getHeader(headers, "To");
-        const { name: clientName, email: clientEmail } = parseNameEmail(to);
+        // Handle multiple recipients — take the first non-Felipe one
+        const toAddresses = to.split(",").map((s) => s.trim());
+        let clientName = "";
+        let clientEmail = "";
+        for (const addr of toAddresses) {
+          const parsed = parseNameEmail(addr);
+          if (!parsed.email.toLowerCase().includes(MY_EMAIL.toLowerCase())) {
+            clientName = parsed.name;
+            clientEmail = parsed.email;
+            break;
+          }
+        }
 
-        if (
-          !clientEmail ||
-          clientEmail.toLowerCase().includes(MY_EMAIL.toLowerCase())
-        )
-          return null;
+        if (!clientEmail) return null;
 
         const subject = getHeader(headers, "Subject");
         const daysSinceLastReply = Math.floor(
-          (Date.now() - dateMs) / (1000 * 60 * 60 * 24)
+          (Date.now() - lastFelipeMs) / (1000 * 60 * 60 * 24)
         );
 
         return {
@@ -126,7 +168,7 @@ export async function GET() {
           clientEmail,
           subject,
           daysSinceLastReply,
-          lastSentDate: new Date(dateMs).toISOString(),
+          lastSentDate: new Date(lastFelipeMs).toISOString(),
         };
       })
     );
