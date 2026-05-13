@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { getSupabase } from "@/lib/supabase";
 import {
   Table,
   TableBody,
@@ -23,8 +24,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProyectoModal, type ProyectoData } from "@/components/proyecto-modal";
 import { AnalyticsCharts } from "@/components/analytics-charts";
-import { normalizeServicio } from "@/lib/utils";
-import { Download, Copy } from "lucide-react";
+import {
+  normalizeServicio,
+  fechaLocalHoyISO,
+  esEsperandoPago,
+  fechaDesdeSupabaseParaInput,
+} from "@/lib/utils";
+import { Download, Copy, Bot, LayoutDashboard } from "lucide-react";
 
 export interface DashboardUser {
   id?: string;
@@ -142,7 +148,8 @@ export function Dashboard({ initialUser }: DashboardProps) {
   }
 
   async function fetchProyectos() {
-    if (!supabase) {
+    const client = getSupabase();
+    if (!client) {
       setError(
         "Supabase no configurado. Agrega NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local"
       );
@@ -150,7 +157,7 @@ export function Dashboard({ initialUser }: DashboardProps) {
       return;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("proyectos")
       .select("*")
       .order("id", { ascending: true });
@@ -171,7 +178,8 @@ export function Dashboard({ initialUser }: DashboardProps) {
   // Sincronizar initialUser y escuchar cambios de auth
   useEffect(() => {
     if (initialUser) setUser(initialUser);
-    if (!supabase) return;
+    const client = getSupabase();
+    if (!client) return;
     const applyUser = (u: {
       id?: string;
       user_metadata?: Record<string, unknown>;
@@ -209,8 +217,8 @@ export function Dashboard({ initialUser }: DashboardProps) {
         return next;
       });
     };
-    supabase.auth.getSession().then(({ data: { session } }) => applyUser(session?.user ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) =>
+    client.auth.getSession().then(({ data: { session } }) => applyUser(session?.user ?? null));
+    const { data: { subscription } } = client.auth.onAuthStateChange((_, session) =>
       applyUser(session?.user ?? null)
     );
     return () => subscription.unsubscribe();
@@ -411,18 +419,19 @@ export function Dashboard({ initialUser }: DashboardProps) {
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !user?.id || !supabase) return;
+    const client = getSupabase();
+    if (!file || !user?.id || !client) return;
     const ext = file.name.split(".").pop()?.toLowerCase() || "png";
     if (!["png", "jpg", "jpeg", "webp"].includes(ext)) return;
     setAvatarUploading(true);
     try {
       const path = `${user.id}/avatar.${ext}`;
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await client.storage
         .from("avatars")
         .upload(path, file, { upsert: true });
       if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-      await supabase.from("profiles").upsert(
+      const { data: { publicUrl } } = client.storage.from("avatars").getPublicUrl(path);
+      await client.from("profiles").upsert(
         { id: user.id, avatar_url: publicUrl, updated_at: new Date().toISOString() },
         { onConflict: "id" }
       );
@@ -445,13 +454,22 @@ export function Dashboard({ initialUser }: DashboardProps) {
       precio: p.precio ?? "",
       contacto: p.contacto ?? "",
       estado_pago: p.estado_pago ?? "",
-      fecha_terminado: p.fecha_terminado ?? "",
+      fecha_terminado: fechaDesdeSupabaseParaInput(p.fecha_terminado),
     });
     setModalOpen(true);
   }
 
   async function handleSave(data: ProyectoData) {
-    if (!supabase) return;
+    const client = getSupabase();
+    if (!client) {
+      throw new Error("No hay conexión con Supabase. Recarga la página.");
+    }
+
+    const fechaTrim = String(data.fecha_terminado ?? "").trim();
+    const fechaFactura =
+      !fechaTrim && esEsperandoPago(data.estado_pago)
+        ? fechaLocalHoyISO()
+        : fechaTrim || null;
 
     const payload = {
       cliente: data.cliente,
@@ -460,18 +478,54 @@ export function Dashboard({ initialUser }: DashboardProps) {
       precio: data.precio === "" ? 0 : Number(data.precio),
       contacto: data.contacto,
       estado_pago: data.estado_pago,
-      fecha_terminado: data.fecha_terminado || null,
+      fecha_terminado: fechaFactura,
     };
 
     if (data.id) {
-      const { error } = await supabase
+      const { data: row, error } = await client
         .from("proyectos")
         .update(payload)
-        .eq("id", data.id);
+        .eq("id", data.id)
+        .select()
+        .single();
       if (error) throw new Error(error.message);
+      if (
+        row &&
+        esEsperandoPago(payload.estado_pago) &&
+        fechaFactura &&
+        !row.fecha_terminado
+      ) {
+        throw new Error(
+          "La base de datos no guardó la fecha de factura. Revisa en Supabase que la columna fecha_terminado exista y permita UPDATE."
+        );
+      }
+      if (row) {
+        setProyectos((prev) =>
+          prev.map((p) => (p.id === data.id ? { ...p, ...row } : p))
+        );
+      }
     } else {
-      const { error } = await supabase.from("proyectos").insert(payload);
+      const { data: row, error } = await client
+        .from("proyectos")
+        .insert(payload)
+        .select()
+        .single();
       if (error) throw new Error(error.message);
+      if (
+        row &&
+        esEsperandoPago(payload.estado_pago) &&
+        fechaFactura &&
+        !row.fecha_terminado
+      ) {
+        throw new Error(
+          "La base de datos no guardó la fecha de factura. Revisa en Supabase que la columna fecha_terminado exista y permita INSERT."
+        );
+      }
+      if (row) {
+        setProyectos((prev) =>
+          [...prev, { ...row } as Proyecto].sort((a, b) => a.id - b.id)
+        );
+      }
     }
 
     await fetchProyectos();
@@ -479,9 +533,10 @@ export function Dashboard({ initialUser }: DashboardProps) {
   }
 
   async function handleDelete(id: number) {
-    if (!supabase) return;
+    const client = getSupabase();
+    if (!client) return;
 
-    const { error } = await supabase
+    const { error } = await client
       .from("proyectos")
       .delete()
       .eq("id", id);
@@ -526,6 +581,29 @@ export function Dashboard({ initialUser }: DashboardProps) {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Nav tabs */}
+            <nav className="flex items-center gap-1">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="gap-1.5 text-xs sm:text-sm"
+                disabled
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </Button>
+              <Link href="/agente">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <Bot className="h-4 w-4" />
+                  <span className="hidden sm:inline">Agente</span>
+                </Button>
+              </Link>
+            </nav>
+
             {user && (
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <input
@@ -577,8 +655,9 @@ export function Dashboard({ initialUser }: DashboardProps) {
               size="sm"
               className="min-h-[44px] min-w-[44px] sm:min-w-0 text-xs sm:text-sm"
               onClick={async () => {
-                if (supabase) {
-                  await supabase.auth.signOut();
+                const client = getSupabase();
+                if (client) {
+                  await client.auth.signOut();
                   window.location.href = "/login";
                 }
               }}
@@ -1009,8 +1088,12 @@ export function Dashboard({ initialUser }: DashboardProps) {
 
       {/* Modal */}
       <ProyectoModal
+        key={editingProject?.id ?? "new"}
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingProject(null);
+        }}
         onSave={handleSave}
         onDelete={handleDelete}
         initialData={editingProject}
