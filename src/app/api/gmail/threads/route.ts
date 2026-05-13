@@ -92,7 +92,7 @@ export async function GET(request: Request) {
     const results = await Promise.all(
       batch.map(async (thread) => {
         const res = await fetch(
-          `${GMAIL_API}/threads/${thread.id}?format=metadata&metadataHeaders=From,To,Subject,Date`,
+          `${GMAIL_API}/threads/${thread.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) return null;
