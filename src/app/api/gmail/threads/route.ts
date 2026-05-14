@@ -6,6 +6,16 @@ const MY_EMAIL = "felipe@reyesia.com";
 const DAYS_LOOKBACK = 60;
 const DAYS_NO_REPLY = 5;
 
+const PROPOSAL_KEYWORDS = [
+  "propuesta", "cotización", "cotizacion", "taller", "capacitación", "capacitacion",
+  "oferta", "presupuesto", "proyecto", "curso", "workshop", "formación", "formacion",
+];
+
+function isProposalThread(subject: string): boolean {
+  const lower = subject.toLowerCase();
+  return PROPOSAL_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 function emailToName(email: string): string {
   const local = email.split("@")[0];
   return local
@@ -212,6 +222,12 @@ export async function GET(request: Request) {
         }
 
         const subject = getHeader(headers, "Subject");
+
+        if (!isProposalThread(subject)) {
+          if (debug) debugLog.push({ threadId: thread.id, subject, reason: "not_proposal", clientEmail });
+          return null;
+        }
+
         const daysSinceLastReply = Math.floor((Date.now() - lastFelipeMs) / (1000 * 60 * 60 * 24));
 
         if (debug) debugLog.push({ threadId: thread.id, subject, reason: "INCLUDED", clientEmail, clientName, nameFromEmail, daysSinceLastReply });
