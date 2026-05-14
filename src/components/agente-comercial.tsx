@@ -19,8 +19,9 @@ interface PendingThread {
   lastSentDate: string;
 }
 
+type ThreadAction = "idle" | "loading-draft" | "loading-send" | "done-draft" | "done-send" | "error-draft" | "error-send";
 interface DraftState {
-  [threadId: string]: "idle" | "loading" | "done" | "error";
+  [threadId: string]: ThreadAction;
 }
 
 interface AgenteComercialProps {
@@ -73,9 +74,14 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
     }
   }
 
-  async function handleCrearDraft(thread: PendingThread) {
-    setDrafts((prev) => ({ ...prev, [thread.threadId]: "loading" }));
+  function removeThread(threadId: string) {
+    setTimeout(() => {
+      setThreads((prev) => prev.filter((t) => t.threadId !== threadId));
+    }, 1500);
+  }
 
+  async function handleCrearDraft(thread: PendingThread) {
+    setDrafts((prev) => ({ ...prev, [thread.threadId]: "loading-draft" }));
     try {
       const res = await fetch("/api/gmail/draft", {
         method: "POST",
@@ -87,19 +93,44 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
           subject: thread.subject,
         }),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
-        setDrafts((prev) => ({ ...prev, [thread.threadId]: "error" }));
+        setDrafts((prev) => ({ ...prev, [thread.threadId]: "error-draft" }));
         setErrorMsg(data.error ?? "Error al crear borrador");
         return;
       }
-
-      setDrafts((prev) => ({ ...prev, [thread.threadId]: "done" }));
+      setDrafts((prev) => ({ ...prev, [thread.threadId]: "done-draft" }));
       showSuccess(`Borrador creado para ${thread.clientName}`);
+      removeThread(thread.threadId);
     } catch {
-      setDrafts((prev) => ({ ...prev, [thread.threadId]: "error" }));
+      setDrafts((prev) => ({ ...prev, [thread.threadId]: "error-draft" }));
+    }
+  }
+
+  async function handleEnviar(thread: PendingThread) {
+    setDrafts((prev) => ({ ...prev, [thread.threadId]: "loading-send" }));
+    try {
+      const res = await fetch("/api/gmail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId: thread.threadId,
+          clientName: thread.clientName,
+          clientEmail: thread.clientEmail,
+          subject: thread.subject,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDrafts((prev) => ({ ...prev, [thread.threadId]: "error-send" }));
+        setErrorMsg(data.error ?? "Error al enviar");
+        return;
+      }
+      setDrafts((prev) => ({ ...prev, [thread.threadId]: "done-send" }));
+      showSuccess(`Mail enviado a ${thread.clientName}`);
+      removeThread(thread.threadId);
+    } catch {
+      setDrafts((prev) => ({ ...prev, [thread.threadId]: "error-send" }));
     }
   }
 
@@ -284,13 +315,14 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
             ) : (
               <div className="flex flex-col gap-2">
                 {threads.map((thread) => {
-                  const draftStatus = drafts[thread.threadId] ?? "idle";
-                  const firstName = thread.clientName.split(" ")[0] || thread.clientName;
+                  const state = drafts[thread.threadId] ?? "idle";
+                  const busy = state === "loading-draft" || state === "loading-send";
+                  const done = state === "done-draft" || state === "done-send";
 
                   return (
                     <Card
                       key={thread.threadId}
-                      className="border-border/50 transition-colors hover:border-border"
+                      className="border-border/50 transition-all hover:border-border"
                     >
                       <CardContent className="py-3 px-4">
                         <div className="flex items-center gap-3">
@@ -314,33 +346,48 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
                             </p>
                           </div>
 
-                          {/* Right: action */}
-                          {draftStatus === "done" ? (
+                          {/* Right: actions */}
+                          {done ? (
                             <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-emerald-400">
                               <Send className="h-3 w-3" />
-                              Borrador listo
+                              {state === "done-send" ? "Enviado" : "Borrador listo"}
                             </div>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="shrink-0 h-7 px-2.5 text-xs gap-1.5"
-                              disabled={draftStatus === "loading"}
-                              onClick={() => handleCrearDraft(thread)}
-                            >
-                              {draftStatus === "loading" ? (
-                                <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-foreground" />
-                              ) : (
-                                <Send className="h-3 w-3" />
-                              )}
-                              {draftStatus === "loading" ? "..." : "Borrador"}
-                            </Button>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2.5 text-xs gap-1"
+                                disabled={busy}
+                                onClick={() => handleCrearDraft(thread)}
+                              >
+                                {state === "loading-draft" ? (
+                                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-foreground" />
+                                ) : (
+                                  <Mail className="h-3 w-3" />
+                                )}
+                                Borrador
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-7 px-2.5 text-xs gap-1"
+                                disabled={busy}
+                                onClick={() => handleEnviar(thread)}
+                              >
+                                {state === "loading-send" ? (
+                                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground/40 border-t-primary-foreground" />
+                                ) : (
+                                  <Send className="h-3 w-3" />
+                                )}
+                                Enviar
+                              </Button>
+                            </div>
                           )}
                         </div>
 
-                        {draftStatus === "error" && (
+                        {(state === "error-draft" || state === "error-send") && (
                           <p className="mt-1 text-[11px] text-destructive">
-                            Error al crear el borrador.
+                            {state === "error-send" ? "Error al enviar." : "Error al crear borrador."}
                           </p>
                         )}
                       </CardContent>
