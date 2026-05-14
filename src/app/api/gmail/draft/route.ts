@@ -21,7 +21,16 @@ export async function POST(request: Request) {
 
   const { threadId, clientName, clientEmail, subject } = await request.json();
 
-  const firstName = clientName?.split(" ")[0] || clientName || "Hola";
+  function extractFirstName(name: string): string {
+    if (!name) return "";
+    if (name.includes("@")) {
+      const local = name.split("@")[0];
+      const part = local.split(/[._\-+]/)[0];
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    }
+    return name.split(" ")[0];
+  }
+  const firstName = extractFirstName(clientName) || "equipo";
 
   const bodyText = `Hola ${firstName}, ¿cómo estás?
 

@@ -6,13 +6,24 @@ const MY_EMAIL = "felipe@reyesia.com";
 const DAYS_LOOKBACK = 60;
 const DAYS_NO_REPLY = 5;
 
+function emailToName(email: string): string {
+  const local = email.split("@")[0];
+  return local
+    .split(/[._\-+]/)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ");
+}
+
 function parseNameEmail(header: string): { name: string; email: string } {
   const match = header.match(/^(.*?)\s*<([^>]+)>/);
   if (match) {
-    const name = match[1].trim().replace(/^"|"$/g, "");
-    return { name: name || match[2].trim(), email: match[2].trim() };
+    const raw = match[1].trim().replace(/^"|"$/g, "");
+    const email = match[2].trim();
+    const name = raw || emailToName(email);
+    return { name, email };
   }
-  return { name: header.trim(), email: header.trim() };
+  const email = header.trim();
+  return { name: emailToName(email), email };
 }
 
 function getHeader(headers: Array<{ name: string; value: string }>, name: string): string {

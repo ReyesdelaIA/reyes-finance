@@ -127,31 +127,31 @@ export function HubPage({ initialUser }: HubPageProps) {
           </p>
         </div>
 
-        <div className="grid gap-3">
+        <div className="grid gap-2">
           {modules.map((mod) => {
             const Icon = mod.icon;
             return (
               <Link key={mod.href} href={mod.href} className="group block">
                 <Card className="border-border/50 transition-colors hover:border-border hover:bg-muted/20">
-                  <CardContent className="flex items-center gap-4 py-4 px-5">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${mod.bgClass}`}>
-                      <Icon className={`h-5 w-5 ${mod.iconClass}`} />
+                  <CardContent className="flex items-center gap-3 py-3 px-4">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${mod.bgClass}`}>
+                      <Icon className={`h-4 w-4 ${mod.iconClass}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">{mod.title}</span>
-                        {mod.private && <Lock className="h-3 w-3 text-muted-foreground/60" />}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-medium">{mod.title}</span>
+                        {mod.private && <Lock className="h-2.5 w-2.5 text-muted-foreground/50" />}
                         {mod.badge && (
-                          <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground">
+                          <span className="rounded-full border border-border/60 bg-muted/40 px-1.5 py-0 text-[10px] text-muted-foreground">
                             {mod.badge}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      <p className="text-[11px] text-muted-foreground truncate">
                         {mod.description}
                       </p>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 transition-transform group-hover:translate-x-0.5" />
                   </CardContent>
                 </Card>
               </Link>

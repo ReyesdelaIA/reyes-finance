@@ -126,7 +126,7 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-5">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-primary overflow-hidden">
               <Image
                 src="/isotipo.png"
@@ -145,7 +145,7 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
                 Agente Comercial
               </p>
             </div>
-          </div>
+          </Link>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Nav tabs */}
