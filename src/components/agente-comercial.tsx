@@ -288,7 +288,7 @@ export function AgenteComercial({ initialUser }: AgenteComercialProps) {
                             contentStyle={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 8, fontSize: 12 }}
                             labelStyle={{ color: "#a1a1aa" }}
                             itemStyle={{ color: "#e4e4e7" }}
-                            formatter={(v: number) => [`${v} contacto${v !== 1 ? "s" : ""}`, ""]}
+                            formatter={(v: number | undefined) => [`${v ?? 0} contacto${(v ?? 0) !== 1 ? "s" : ""}`, ""]}
                           />
                           <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                             {bucketData.map((b, i) => <Cell key={i} fill={b.bar} />)}
